@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--grad-clip", type=float, default=1.0)
 
     # ---- benchmark parameters ----
-    p.add_argument("--batch-size", type=int, default=128)
+    p.add_argument("--batch-size", type=int, default=4)
     p.add_argument("--warmup-steps", type=int, default=5)
     p.add_argument("--measurement-steps", type=int, default=10)
     p.add_argument("--mode", choices=["forward", "backward", "optimizer"], default="forward")
