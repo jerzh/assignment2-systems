@@ -40,17 +40,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", type=str,
                    default="cuda" if torch.cuda.is_available() else "cpu")
-    p.add_argument("--dtype", type=str, default="float32")
 
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.dtype == "float32":
-        dtype = torch.float32
-    else:
-        raise ValueError("Only f32 supported")
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     torch.manual_seed(args.seed)
@@ -63,9 +58,7 @@ if __name__ == "__main__":
         num_heads=args.num_heads,
         d_ff=args.d_ff,
         rope_theta=args.rope_theta,
-        device=args.device,
-        dtype=dtype,
-    )
+    ).to(device=args.device)
     optimizer = AdamW(
         params=model.parameters(),
         lr=args.lr,
