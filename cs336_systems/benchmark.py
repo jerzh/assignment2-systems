@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
                    default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--mixed-precision", action="store_true")
     p.add_argument("--profile-memory", action="store_true")
+    p.add_argument("--use-checkpoints", action="store_true")
 
     return p.parse_args()
 
@@ -84,6 +85,7 @@ if __name__ == "__main__":
         num_heads=num_heads,
         d_ff=d_ff,
         rope_theta=args.rope_theta,
+        use_checkpoints=args.use_checkpoints,
     ).to(device=args.device)
     optimizer = AdamW(
         params=model.parameters(),

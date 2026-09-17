@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import math
@@ -12,6 +13,7 @@ import torch.nn as nn
 from einops import einsum, rearrange
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+from torch.utils.checkpoint import checkpoint
 
 from cs336_basics.nn_utils import softmax
 
@@ -186,6 +188,7 @@ class BasicsTransformerLM(nn.Module):
         num_heads: int,
         d_ff: int,
         rope_theta: float | None = 10_000.0,
+        use_checkpoints: bool = False,
     ):
         # Store the model configuration for serialization / deserialization
         self.config = {
@@ -199,6 +202,7 @@ class BasicsTransformerLM(nn.Module):
         self.positional_encoder = (
             RotaryEmbedding(context_length, d_head, rope_theta) if rope_theta is not None else None
         )
+        self.use_checkpoints = use_checkpoints
 
         self.layers = nn.ModuleList(
             [
@@ -248,9 +252,18 @@ class BasicsTransformerLM(nn.Module):
         # x = self.positional_encoder(embedded_tokens, positions)
         x = embedded_tokens
 
-        for layer in self.layers:
-            # (batch size, sequence_length, d_model)
-            x = layer(x)
+        num_layers = len(self.layers)
+        if self.use_checkpoints:
+            for layer_group in itertools.batched(self.layers, int(math.sqrt(num_layers))):
+                def layer_group_fn(x, layer_group=layer_group):
+                    for layer in layer_group:
+                        x = layer(x)
+                    return x
+                x = checkpoint(layer_group_fn, x, use_reentrant=False)
+        else:
+            for layer in self.layers:
+                # (batch size, sequence_length, d_model)
+                x = layer(x)
         # (batch size, sequence_length, d_model)
         x = self.ln_final(x)
         # (batch size, sequence_length, vocab_size)
