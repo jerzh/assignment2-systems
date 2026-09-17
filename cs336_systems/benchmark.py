@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import timeit
 
@@ -40,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", type=str,
                    default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--mixed-precision", action="store_true")
 
     return p.parse_args()
 
@@ -69,25 +71,32 @@ if __name__ == "__main__":
     inputs = torch.randint(0, args.vocab_size, (args.batch_size, args.context_length), device=args.device)
     targets = torch.randint(0, args.vocab_size, (args.batch_size, args.context_length), device=args.device)
 
+    if args.mixed_precision:
+        loop_context = torch.autocast(device_type="cuda", dtype="bf16")
+    else:
+        loop_context = contextlib.nullcontext()
     if args.mode == "forward":
         def step():
-            model(inputs)
+            with loop_context:
+                model(inputs)
             if args.device == "cuda":
                 torch.cuda.synchronize()
     elif args.mode == "backward":
         def step():
-            logits = model(inputs)
-            loss = cross_entropy(logits, targets)
-            loss.backward()
+            with loop_context:
+                logits = model(inputs)
+                loss = cross_entropy(logits, targets)
+                loss.backward()
             if args.device == "cuda":
                 torch.cuda.synchronize()
     else:
         def step():
-            optimizer.zero_grad()
-            logits = model(inputs)
-            loss = cross_entropy(logits, targets)
-            loss.backward()
-            optimizer.step()
+            with loop_context:
+                optimizer.zero_grad()
+                logits = model(inputs)
+                loss = cross_entropy(logits, targets)
+                loss.backward()
+                optimizer.step()
             if args.device == "cuda":
                 torch.cuda.synchronize()
 
