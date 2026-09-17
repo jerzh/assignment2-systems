@@ -101,7 +101,10 @@ if __name__ == "__main__":
                 torch.cuda.synchronize()
 
     timeit.timeit("step()", number=args.warmup_steps, globals=globals())
+    torch.cuda.memory._record_memory_history(max_entries=1000000)
     times = timeit.repeat("step()", number=1, repeat=args.measurement_steps, globals=globals())
+    torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
+    torch.cuda.memory._record_memory_history(enabled=None)
     logging.info(f"mode: {args.mode}")
     logging.info("times:")
     for t in times:
