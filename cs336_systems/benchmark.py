@@ -101,7 +101,7 @@ if __name__ == "__main__":
         loop_context = contextlib.nullcontext()
     if args.mode == "forward":
         def step():
-            with loop_context:
+            with loop_context, torch.no_grad():
                 model(inputs)
             if args.device == "cuda":
                 torch.cuda.synchronize()
