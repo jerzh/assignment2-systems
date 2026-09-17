@@ -102,29 +102,32 @@ if __name__ == "__main__":
 
     if args.mode == "forward":
         def step():
-            with nvtx.range("forward"):
-                model(inputs)
+            with torch.autograd.profiler.emit_nvtx():
+                with nvtx.range("forward"):
+                    model(inputs)
             if args.device == "cuda" and args.sync:
                 torch.cuda.synchronize()
     elif args.mode == "backward":
         def step():
-            with nvtx.range("forward"):
-                logits = model(inputs)
-            with nvtx.range("backward"):
-                loss = cross_entropy(logits, targets)
-                loss.backward()
+            with torch.autograd.profiler.emit_nvtx():
+                with nvtx.range("forward"):
+                    logits = model(inputs)
+                with nvtx.range("backward"):
+                    loss = cross_entropy(logits, targets)
+                    loss.backward()
             if args.device == "cuda" and args.sync:
                 torch.cuda.synchronize()
     else:
         def step():
-            optimizer.zero_grad()
-            with nvtx.range("forward"):
-                logits = model(inputs)
-            with nvtx.range("backward"):
-                loss = cross_entropy(logits, targets)
-                loss.backward()
-            with nvtx.range("optimizer"):
-                optimizer.step()
+            with torch.autograd.profiler.emit_nvtx():
+                optimizer.zero_grad()
+                with nvtx.range("forward"):
+                    logits = model(inputs)
+                with nvtx.range("backward"):
+                    loss = cross_entropy(logits, targets)
+                    loss.backward()
+                with nvtx.range("optimizer"):
+                    optimizer.step()
             if args.device == "cuda" and args.sync:
                 torch.cuda.synchronize()
 
