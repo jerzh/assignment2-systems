@@ -72,7 +72,7 @@ if __name__ == "__main__":
     targets = torch.randint(0, args.vocab_size, (args.batch_size, args.context_length), device=args.device)
 
     if args.mixed_precision:
-        loop_context = torch.autocast(device_type="cuda", dtype="bf16")
+        loop_context = torch.autocast(device_type="cuda", dtype=torch.bfloat16)
     else:
         loop_context = contextlib.nullcontext()
     if args.mode == "forward":
