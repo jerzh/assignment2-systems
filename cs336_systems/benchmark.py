@@ -103,7 +103,7 @@ if __name__ == "__main__":
     if args.mode == "forward":
         def step():
             with torch.autograd.profiler.emit_nvtx():
-                with nvtx.range("forward"):
+                with nvtx.range("forward"), torch.no_grad():
                     model(inputs)
             if args.device == "cuda" and args.sync:
                 torch.cuda.synchronize()
