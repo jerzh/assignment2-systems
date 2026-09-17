@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     timeit.timeit("step()", number=args.warmup_steps, globals=globals())
     if args.profile_memory:
-        torch.cuda.memory._record_memory_history(max_entries=1000000)
+        torch.cuda.memory._record_memory_history(max_entries=1000000, stacks="python")
     times = timeit.repeat("step()", number=1, repeat=args.measurement_steps, globals=globals())
     if args.profile_memory:
         torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
