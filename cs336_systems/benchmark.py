@@ -19,10 +19,8 @@ def parse_args() -> argparse.Namespace:
     # ---- model architecture ----
     p.add_argument("--vocab-size", type=int, default=10_000)
     p.add_argument("--context-length", type=int, default=512)
-    p.add_argument("--d-model", type=int, default=768)
-    p.add_argument("--num-layers", type=int, default=12)
-    p.add_argument("--num-heads", type=int, default=12)
-    p.add_argument("--d-ff", type=int, default=3072)   # ~ (8/3) * d_model, rounded to multiple of 64
+    p.add_argument("--model-size", choices=["small", "medium", "large", "xl", "10B"],
+                   default="small")
     p.add_argument("--rope-theta", type=float, default=10000.0)
 
     # ---- optimizer (AdamW) ----
@@ -42,12 +40,38 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--device", type=str,
                    default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--mixed-precision", action="store_true")
+    p.add_argument("--profile-memory", action="store_true")
 
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.model_size == "small":
+        d_model = 768
+        d_ff = 3072
+        num_layers = 12
+        num_heads = 12
+    elif args.model_size == "medium":
+        d_model = 1024
+        d_ff = 4096
+        num_layers = 24
+        num_heads = 16
+    elif args.model_size == "large":
+        d_model = 1280
+        d_ff = 5120
+        num_layers = 36
+        num_heads = 20
+    elif args.model_size == "xl":
+        d_model = 2560
+        d_ff = 10240
+        num_layers = 32
+        num_heads = 32
+    else:
+        d_model = 4608
+        d_ff = 12288
+        num_layers = 50
+        num_heads = 36
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     torch.manual_seed(args.seed)
@@ -55,10 +79,10 @@ if __name__ == "__main__":
     model = BasicsTransformerLM(
         vocab_size=args.vocab_size,
         context_length=args.context_length,
-        d_model=args.d_model,
-        num_layers=args.num_layers,
-        num_heads=args.num_heads,
-        d_ff=args.d_ff,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
         rope_theta=args.rope_theta,
     ).to(device=args.device)
     optimizer = AdamW(
@@ -101,10 +125,12 @@ if __name__ == "__main__":
                 torch.cuda.synchronize()
 
     timeit.timeit("step()", number=args.warmup_steps, globals=globals())
-    torch.cuda.memory._record_memory_history(max_entries=1000000)
+    if args.profile_memory:
+        torch.cuda.memory._record_memory_history(max_entries=1000000)
     times = timeit.repeat("step()", number=1, repeat=args.measurement_steps, globals=globals())
-    torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
-    torch.cuda.memory._record_memory_history(enabled=None)
+    if args.profile_memory:
+        torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
+        torch.cuda.memory._record_memory_history(enabled=None)
     logging.info(f"mode: {args.mode}")
     logging.info("times:")
     for t in times:
