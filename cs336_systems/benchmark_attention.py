@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_test(args: argparse.Namespace, context_length: int, d_model: int):
+    logging.info(f"context length: {context_length}  d_model: {d_model}")
     this_size = (args.batch_size, context_length, d_model)
     Q = torch.randn(this_size, device=args.device, requires_grad=True)
     K = torch.randn(this_size, device=args.device, requires_grad=True)
