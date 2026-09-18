@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--warmup-steps", type=int, default=5)
     p.add_argument("--measurement-steps", type=int, default=100)
+    p.add_argument("--use-compiled", action="store_true")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", type=str,
                    default="cuda" if torch.cuda.is_available() else "cpu")
@@ -36,19 +37,24 @@ def run_test(args: argparse.Namespace, context_length: int, d_model: int):
     K = torch.randn(this_size, device=args.device, requires_grad=True)
     V = torch.randn(this_size, device=args.device, requires_grad=True)
 
+    if args.use_compiled:
+        attention = torch.compile(scaled_dot_product_attention)
+    else:
+        attention = scaled_dot_product_attention
+
     def forward():
         with torch.no_grad():
-            scaled_dot_product_attention(Q, K, V)
+            attention(Q, K, V)
         if args.device == "cuda":
             torch.cuda.synchronize()
 
     def test_memory():
-        out = scaled_dot_product_attention(Q, K, V)
+        out = attention(Q, K, V)
         return torch.cuda.memory_allocated()
 
     def backward():
         Q.grad = K.grad = V.grad = None
-        out = scaled_dot_product_attention(Q, K, V)
+        out = attention(Q, K, V)
         out.sum().backward()
         if args.device == "cuda":
             torch.cuda.synchronize()
