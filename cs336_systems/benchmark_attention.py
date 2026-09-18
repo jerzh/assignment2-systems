@@ -77,9 +77,8 @@ if __name__ == "__main__":
         for context_length in [256, 1024, 4096, 8192, 16384]:
             try:
                 run_test(args, context_length, d_model)
-            except torch.cuda.OutOfMemoryError:
-                logging.info("CUDA OOM caught!")
-            finally:
-                logging.info("Cleaning up memory...")
+            except torch.cuda.OutOfMemoryError as e:
+                logging.info("CUDA OOM caught! Cleaning up memory...")
+                del e
                 gc.collect()
                 torch.cuda.empty_cache()
