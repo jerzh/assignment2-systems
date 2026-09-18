@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import logging
 import timeit
 
@@ -15,8 +16,6 @@ def parse_args() -> argparse.Namespace:
 
     # ---- model architecture ----
     p.add_argument("--vocab-size", type=int, default=10_000)
-    p.add_argument("--context-length", type=int, default=256)
-    p.add_argument("--d-model", type=int, default=16)
     p.add_argument("--rope-theta", type=float, default=10000.0)
 
     # ---- benchmark parameters ----
@@ -30,12 +29,8 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    torch.manual_seed(args.seed)
-
-    this_size = (args.batch_size, args.context_length, args.d_model)
+def run_test(args: argparse.Namespace, context_length: int, d_model: int):
+    this_size = (args.batch_size, context_length, d_model)
     Q = torch.randn(this_size, device=args.device, requires_grad=True)
     K = torch.randn(this_size, device=args.device, requires_grad=True)
     V = torch.randn(this_size, device=args.device, requires_grad=True)
@@ -51,7 +46,7 @@ if __name__ == "__main__":
         return torch.cuda.memory_allocated()
 
     def backward():
-        Q.grad = None, K.grad = None, V.grad = None
+        Q.grad = K.grad = V.grad = None
         out = scaled_dot_product_attention(Q, K, V)
         out.sum().backward()
         if args.device == "cuda":
@@ -59,8 +54,8 @@ if __name__ == "__main__":
 
     # forward
     timeit.timeit("forward()", number=args.warmup_steps, globals=globals())
-    tforward = timeit.repeat("forward()", number=args.measurement_steps, globals=globals())
-    logging.info(f"forward time ({args.measurement_steps} iterations): {tforward}")
+    time_forward = timeit.timeit("forward()", number=args.measurement_steps, globals=globals())
+    logging.info(f"forward time ({args.measurement_steps} iterations): {time_forward}")
 
     # test memory
     current_allocated = test_memory()
@@ -68,5 +63,22 @@ if __name__ == "__main__":
 
     # backward
     timeit.timeit("backward()", number=args.warmup_steps, globals=globals())
-    tbackward = timeit.repeat("backward()", number=args.measurement_steps, globals=globals())
-    logging.info(f"backward time ({args.measurement_steps} iterations): {tbackward}")
+    time_backward = timeit.timeit("backward()", number=args.measurement_steps, globals=globals())
+    logging.info(f"backward time ({args.measurement_steps} iterations): {time_backward}")
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    torch.manual_seed(args.seed)
+
+    for d_model in [16, 32, 64, 128]:
+        for context_length in [256, 1024, 4096, 8192, 16384]:
+            try:
+                run_test(args, context_length, d_model)
+            except torch.cuda.OutOfMemoryError:
+                logging.info("CUDA OOM caught!")
+            finally:
+                logging.info("Cleaning up memory...")
+                gc.collect()
+                torch.cuda.empty_cache()
