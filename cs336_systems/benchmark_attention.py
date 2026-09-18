@@ -53,8 +53,8 @@ def run_test(args: argparse.Namespace, context_length: int, d_model: int):
             torch.cuda.synchronize()
 
     # forward
-    timeit.timeit("forward()", number=args.warmup_steps, globals=globals())
-    time_forward = timeit.timeit("forward()", number=args.measurement_steps, globals=globals())
+    timeit.timeit(forward, number=args.warmup_steps, globals=globals())
+    time_forward = timeit.timeit(forward, number=args.measurement_steps, globals=globals())
     logging.info(f"forward time ({args.measurement_steps} iterations): {time_forward}")
 
     # test memory
@@ -62,8 +62,8 @@ def run_test(args: argparse.Namespace, context_length: int, d_model: int):
     logging.info(f"memory allocated for graph: {current_allocated}")
 
     # backward
-    timeit.timeit("backward()", number=args.warmup_steps, globals=globals())
-    time_backward = timeit.timeit("backward()", number=args.measurement_steps, globals=globals())
+    timeit.timeit(backward, number=args.warmup_steps, globals=globals())
+    time_backward = timeit.timeit(backward, number=args.measurement_steps, globals=globals())
     logging.info(f"backward time ({args.measurement_steps} iterations): {time_backward}")
 
 
