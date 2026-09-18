@@ -42,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--mixed-precision", action="store_true")
     p.add_argument("--profile-memory", action="store_true")
     p.add_argument("--use-checkpoints", action="store_true")
+    p.add_argument("--use-compiled", action="store_true")
 
     return p.parse_args()
 
@@ -87,6 +88,8 @@ if __name__ == "__main__":
         rope_theta=args.rope_theta,
         use_checkpoints=args.use_checkpoints,
     ).to(device=args.device)
+    if args.use_compiled:
+        model = torch.compile(model)
     optimizer = AdamW(
         params=model.parameters(),
         lr=args.lr,
